@@ -1,0 +1,9 @@
+bin/
+obj/
+TestResults/
+.vs/
+.vscode/
+.idea/
+*.user
+# Optional local copy of the game, used when Steam's isn't found (see LinuxNativeDesktop.csproj)
+LinuxNativeDesktop/Resonite/

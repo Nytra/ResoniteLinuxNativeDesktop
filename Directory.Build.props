@@ -1,0 +1,10 @@
+<Project>
+	<!-- Resonite's usual Steam locations. Override with -p:ResonitePath=/path/to/Resonite/ or a ResonitePath
+	     environment variable. -->
+	<PropertyGroup Condition="'$(ResonitePath)'==''">
+		<ResonitePath Condition="Exists('$(HOME)/.steam/steam/steamapps/common/Resonite/')">$(HOME)/.steam/steam/steamapps/common/Resonite/</ResonitePath>
+		<ResonitePath Condition="Exists('$(HOME)/.local/share/Steam/steamapps/common/Resonite/')">$(HOME)/.local/share/Steam/steamapps/common/Resonite/</ResonitePath>
+		<ResonitePath Condition="Exists('$(HOME)/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common/Resonite/')">$(HOME)/.var/app/com.valvesoftware.Steam/.local/share/Steam/steamapps/common/Resonite/</ResonitePath>
+		<ResonitePath Condition="Exists('/media/linux_data/Steam/steamapps/common/Resonite/')">/media/linux_data/Steam/steamapps/common/Resonite/</ResonitePath>
+	</PropertyGroup>
+</Project>

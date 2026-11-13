@@ -1,0 +1,56 @@
+<Project Sdk="Microsoft.NET.Sdk">
+	<PropertyGroup>
+		<RootNamespace>LinuxNativeDesktop</RootNamespace>
+		<AssemblyName>LinuxNativeDesktop</AssemblyName>
+		<TargetFramework>net10.0</TargetFramework>
+		<LangVersion>14.0</LangVersion>
+		<Nullable>enable</Nullable>
+		<ImplicitUsings>enable</ImplicitUsings>
+		<AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+		<!-- Set CopyToMods to false to stop builds from being copied into rml_mods -->
+		<CopyToMods Condition="'$(CopyToMods)'==''">true</CopyToMods>
+	</PropertyGroup>
+
+	<!-- Directory.Build.props looks in the usual Steam folders; otherwise expect it next to the project. -->
+	<PropertyGroup Condition="'$(ResonitePath)'==''">
+		<ResonitePath>$(MSBuildThisFileDirectory)Resonite/</ResonitePath>
+	</PropertyGroup>
+
+	<ItemGroup>
+		<PackageReference Include="ResoniteModLoader" Version="5.0.1" />
+		<PackageReference Include="Lib.Harmony" Version="2.4.2" />
+		<Reference Include="Elements.Core">
+			<HintPath>$(ResonitePath)Elements.Core.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="Elements.Assets">
+			<HintPath>$(ResonitePath)Elements.Assets.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="FrooxEngine">
+			<HintPath>$(ResonitePath)FrooxEngine.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="SkyFrost.Base.Models">
+			<HintPath>$(ResonitePath)SkyFrost.Base.Models.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+		<Reference Include="Renderite.Shared">
+			<HintPath>$(ResonitePath)Renderite.Shared.dll</HintPath>
+			<Private>False</Private>
+		</Reference>
+	</ItemGroup>
+
+	<ItemGroup>
+		<InternalsVisibleTo Include="LinuxNativeDesktop.Tests" />
+	</ItemGroup>
+
+	<Target Name="CheckResonitePath" BeforeTargets="ResolveAssemblyReferences" Condition="!Exists('$(ResonitePath)FrooxEngine.dll')">
+		<Error Text="Resonite not found at '$(ResonitePath)'. Pass -p:ResonitePath=/path/to/Resonite/ (the folder with FrooxEngine.dll)." />
+	</Target>
+
+	<Target Name="PostBuild" AfterTargets="PostBuildEvent" Condition="'$(CopyToMods)'=='true'">
+		<Message Text="Attempting to copy $(TargetFileName) to $(ResonitePath)rml_mods" Importance="high" />
+		<Copy SourceFiles="$(TargetDir)$(TargetFileName)" DestinationFolder="$(ResonitePath)rml_mods" ContinueOnError="true" />
+	</Target>
+</Project>
