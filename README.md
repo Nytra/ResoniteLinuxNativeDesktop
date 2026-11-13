@@ -66,8 +66,8 @@ In desktop mode the tab only shows your screen, as on Windows; use your real mou
 - "Follow cursor" follows Wine's cursor, not your real one.
 - Multiple monitors are untested. Displays are matched by position and size, then by order; sharing all screens
   works best.
-- Resonite's "stream desktop" button works as on Windows (nothing is shared unless you start a stream), but is
-  untested.
+- Resonite's "stream desktop" button doesn't work: the game captures the stream for other users with a
+  Windows-only screen capture that can't run on Linux. Only the desktop tab itself is supported.
 
 ## Troubleshooting
 

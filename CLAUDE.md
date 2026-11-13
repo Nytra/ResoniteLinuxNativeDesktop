@@ -118,8 +118,11 @@ misses the dash's ≡ button clicks the desktop instead. The button already has 
   pointer mapping, key mapping and tap sequences, keysyms, scroll accumulation and primers, portal GVariant
   messages and Response checks (real GLib), bus name lookup (skipped without a session bus), log redaction, and a
   real PipeWire stream from a GStreamer source.
-- Tested on KDE Plasma 6.8 Wayland, single monitor, VR. Untested: multiple monitors, Resonite's "stream desktop"
-  (left as on Windows by the user's choice). Ideas offered but not built: a window-switcher (KDE Overview) button,
+- Tested on KDE Plasma 6.8 Wayland, single monitor, VR. Untested: multiple monitors.
+- "Stream desktop" is left unpatched (the user's choice) and can't work: `SharedDesktopTexture` mirrors locally
+  through a `DesktopTextureProvider`, but the stream others receive comes from FFmpeg's Windows-only `gfxcapture`
+  filter (`hmonitor=` from Wine) via `RuntimeData/ffmpeg.exe`. Supporting it would mean feeding the PipeWire frames to
+  a Linux FFmpeg as raw video instead. Ideas offered but not built: a window-switcher (KDE Overview) button,
   a bigger hit area for the ≡ button.
 - The mod was renamed from LinuxDesktopTab; only the local repo folder still uses the old name. GitHub:
   https://github.com/Nytra/ResoniteLinuxNativeDesktop
