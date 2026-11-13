@@ -51,7 +51,8 @@ Change these with a mod settings mod such as ResoniteModSettings, or in `rml_con
 ## Using it in VR
 
 - **Laser**: moves your mouse pointer; trigger clicks, secondary action right-clicks.
-- **Thumbstick**: scrolls what's under the laser (and doesn't move you while pointing at the desktop).
+- **Thumbstick**: scrolls what's under the laser. It still moves and turns you as usual; to stop that while pointing
+  at UI, use a mod such as [NoTankControls](https://github.com/Nytra/NoTankControls).
 - **Windows-logo button**: opens your application launcher (Meta key).
 - **Desktop keyboard**: types into the focused window, on any keyboard layout.
 

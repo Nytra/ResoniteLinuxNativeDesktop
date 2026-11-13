@@ -129,9 +129,9 @@ static class GameMouseFilterPatch
 /// <summary>
 /// Thumbstick scrolling. In VR the thumbstick is bound to the interaction handler's <c>Axis</c>; the canvas scroll
 /// path (<c>Canvas.ProcessAxis</c>, fed by <c>TouchAxis</c>) is only bound to the mouse wheel, so stock Resonite never
-/// scrolls UI with the stick. While a laser is on the desktop image, the handler's Axis claims the stick
-/// (<c>RegisterBlocks</c>, as the engine does for tools that use it), so movement and turning don't also get it, and
-/// its value becomes scrolling at the pointer, in wheel-notch-sized steps.
+/// scrolls UI with the stick. While a laser is on the desktop image, its handler's Axis value becomes scrolling at the
+/// pointer, in wheel-notch-sized steps. The stick isn't claimed, so it still moves and turns you as usual; a mod such
+/// as NoTankControls can block that.
 /// </summary>
 static class DesktopScroll
 {
@@ -157,16 +157,6 @@ static class DesktopScroll
 		{
 			if (__result && eventData.hover != EventState.End && eventData.source is { } source)
 				MarkOnDesktop(source);
-		}
-	}
-
-	[HarmonyPatch(typeof(InteractionHandler), nameof(InteractionHandler.BeforeInputUpdate))]
-	static class ClaimStickPatch
-	{
-		static void Postfix(InteractionHandler __instance)
-		{
-			if (IsOnDesktop(__instance))
-				Inputs(__instance).Axis.RegisterBlocks = true;
 		}
 	}
 

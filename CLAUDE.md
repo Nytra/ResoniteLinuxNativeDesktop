@@ -41,10 +41,13 @@ input. User docs are in README.md; this file covers the design and the engine fa
 - **VR fixes**: `CursorLockPatch` drops the cursor lock in VR; `GameMouseFilterPatch` hides the game's mouse
   buttons in VR while the mod is injecting clicks (a button held, or within 0.5 s of one, since Wine reports them late).
 - **Scrolling** (`DesktopScroll`): while `DesktopInteractionRelay.ProcessEvent` sees a laser (0.1 s timeout), its
-  handler's `Axis` claims the stick (`RegisterBlocks`) and `ScrollAccumulator` turns it into notch-sized steps, sent
-  as smooth `NotifyPointerAxis` scrolling (15 units per notch). Vertical is negated, because through KDE's portal a
-  positive dy scrolls up (confirmed in-game). After pointer motion each scroll starts with a 1-unit primer
-  (`ScrollAccumulator.Events`, engine fact 9).
+  handler's `Axis` value is turned by `ScrollAccumulator` into notch-sized steps, sent as smooth `NotifyPointerAxis`
+  scrolling (15 units per notch). Vertical is negated, because through KDE's portal a positive dy scrolls up
+  (confirmed in-game). After pointer motion each scroll starts with a 1-unit primer (`ScrollAccumulator.Events`,
+  engine fact 9). The stick is deliberately not claimed (`Axis.RegisterBlocks`), so it still moves and turns the
+  user: by the author's choice, blocking that is left to mods like NoTankControls (which also clears
+  `RegisterBlocks` on every handler, so a claim here would be undone anyway). Its inspector scroll compatibility
+  mode blocks on any controller here: the userspace handler holds an invisible tool that uses secondary.
 
 ## Engine facts (each one broke an in-game test)
 
