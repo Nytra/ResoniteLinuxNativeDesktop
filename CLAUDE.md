@@ -147,8 +147,9 @@ misses the dash's ≡ button clicks the desktop instead. The button already has 
   positions. Restore tokens never reach the log.
 - Release facts (checked 2026-11-13): the game runs .NET 10, RML 5.0.1 itself needs Lib.Harmony 2.4.2 (what the mod
   references), and only the mod DLL ships. The version is `<Version>` in `LinuxNativeDesktop.csproj` (the mod reports
-  the assembly's), so bump only that; release tags are `vX.Y.Z` with the DLL attached. RML loads mods alphabetically, so equal-priority postfixes on the same
-  method run in that order (this one before NoTankControls).
+  the assembly's), so bump only that. Releases: `dotnet build LinuxNativeDesktop -c Release -p:CopyToMods=false`,
+  then `gh release create vX.Y.Z <dll> --target <full SHA>` (a short SHA is rejected). RML loads mods alphabetically,
+  so equal-priority postfixes on the same method run in that order (this one before NoTankControls).
 - Decompile the game with `ilspycmd`. Style: tabs, file-scoped namespaces, csproj layout as in the author's other
   RML mods.
 - Tests (`dotnet test`, 130): SPA pods byte-for-byte against `tools/spa-reference.c`, frame copy, display matching,
