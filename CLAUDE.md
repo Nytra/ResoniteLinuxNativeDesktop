@@ -38,14 +38,19 @@ input. User docs are in README.md; this file covers the design and the engine fa
   screen cast attached (persistence on `SelectDevices`; tokens stored per mode). Lasers drive one absolute pointer plus
   BTN_LEFT and BTN_RIGHT (a pressing laser keeps the pointer; otherwise the one that last moved). Windows turns the
   engine's injected touches into mouse input with tap slop and press-and-hold right-click; `TouchGesture` does the same
-  (settings Drag threshold, 30 px, and Hold for right-click, 0.3 s like the Windows pen default): nothing is pressed
-  until a release (click), a move past the threshold (left down at the press point, then drag) or the hold time
-  (right-click on release). Without the slop laser shake turned most clicks into drags. Hold 0 = left down at once.
-  Clicks made on release hold the button for 50 ms (`ClickLength`): sent back to back, double clicks sometimes left the
-  button held, most likely a lost release as in engine fact 10 (not checked with dbus-monitor). Confirmed fixed in-game.
-  For 0.5 s after a left click (`DoubleClickTime`) the pointer stays on it while the laser is within the threshold, and
-  a press there lands on the same spot (Windows has a double-tap distance), since toolkits only take presses ~5 px apart
-  as a double click; not after a right-click, where the next press picks a menu item (confirmed in-game). The
+  (settings Drag threshold, 30 px, and Hold for right-click, 0.3 s like the Windows pen default: `WaitTime` 300 ms,
+  `HoldTime` 2300 ms under `HKCU\Software\Microsoft\Wisp\Pen\SysEventParameters`; touch has the same sliders under
+  `Wisp\Touch`, default unknown): nothing is pressed until a release (click), a move past the threshold (left down at
+  the press point, then drag) or the hold time (right-click on release). Without the slop laser shake turned most clicks
+  into drags. Hold 0 = left down at once, and then no double-click snapping (those clicks don't start the window). Past
+  the hold time, moving doesn't drag and the release right-clicks at the press point: my choice, not checked against
+  Windows. Clicks made on release hold the button for 50 ms (`ClickLength`): sent back to back, double clicks sometimes
+  left the button held, most likely a lost release as in engine fact 10 (not checked with dbus-monitor). Confirmed fixed
+  in-game. If a button sticks again, filter dbus-monitor to `member='NotifyPointerButton'`: if every press has its
+  release on the bus, KWin loses them, and the next step is re-sending button releases 50 ms later as for keys. For 0.5
+  s after a left click (`DoubleClickTime`) the pointer stays on it while the laser is within the threshold, and a press
+  there lands on the same spot (Windows has a double-tap distance), since toolkits only take presses ~5 px apart as a
+  double click; not after a right-click, where the next press picks a menu item (confirmed in-game). The
   secondary-action click and `SetMousePosition` call `TouchGesture.PointerMoved`, so the next button event moves the
   pointer back to its press point first. A touch taken away mid-press (`TouchGesture.Cancel`) drops a tap or hold that
   hasn't pressed anything yet, rather than sending its press and release back to back. The secondary action also
