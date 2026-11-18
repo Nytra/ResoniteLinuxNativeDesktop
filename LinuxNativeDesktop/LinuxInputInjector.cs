@@ -46,7 +46,7 @@ sealed class LinuxInputInjector(InputInterface inputInterface, Func<IDesktopInpu
 	readonly object _gate = new();
 	readonly Touch[] _touches = [.. Enumerable.Range(0, MaxTouches).Select(i => new Touch(i))];
 	Touch? _owner;       // the touch currently driving the pointer
-	bool _buttonDown;    // left button held on behalf of _owner
+	readonly TouchGesture _gesture = new(); // _owner's press, as Windows would read a touch
 	bool? _wasAvailable; // for logging when input becomes (un)available
 
 	public int UpdateOrder => 0;
@@ -95,12 +95,12 @@ sealed class LinuxInputInjector(InputInterface inputInterface, Func<IDesktopInpu
 			return;
 		lock (_gate)
 		{
-			if (_owner is { Allocated: false })
-				ReleaseOwner(desktop);
+			if (_owner is { Allocated: false } returned)
+				ReleaseOwner(desktop, returned);
 
-			// While the button is held, the pressing touch keeps the pointer. Otherwise a pressed touch takes it,
+			// While a press lasts, the pressing touch keeps the pointer. Otherwise a pressed touch takes it,
 			// then whichever touch moved, so two lasers on the desktop don't make the cursor jump every frame.
-			if (!_buttonDown)
+			if (!_gesture.Active)
 			{
 				var candidate = _touches.FirstOrDefault(t => t.Allocated && t.Pointer.PrimaryPress.Held)
 					?? _touches.FirstOrDefault(t => t.Allocated && t.Pointer.Position.Value != t.LastPosition);
@@ -114,16 +114,8 @@ sealed class LinuxInputInjector(InputInterface inputInterface, Func<IDesktopInpu
 			if (_owner is { } owner)
 			{
 				var position = owner.Pointer.Position.Value;
-				if (position != owner.LastPosition)
-					desktop.MovePointer(Displays(), position.x, position.y);
-				bool pressed = owner.Pointer.PrimaryPress.Held;
-				if (pressed != _buttonDown)
-				{
-					desktop.PointerButton(KeyMap.BtnLeft, pressed);
-					_buttonDown = pressed;
-					NoteButtonEvent(pressed);
-					LinuxNativeDesktop.Debug($"Left button {(pressed ? "down" : "up")} (touch {owner.Pointer.Id})");
-				}
+				Send(desktop, _gesture.Update(position.x, position.y, owner.Pointer.PrimaryPress.Held,
+					LinuxNativeDesktop.DragThreshold, LinuxNativeDesktop.HoldForRightClick, deltaTime), owner);
 			}
 
 			foreach (var t in _touches)
@@ -132,19 +124,40 @@ sealed class LinuxInputInjector(InputInterface inputInterface, Func<IDesktopInpu
 		}
 	}
 
-	void ReleaseOwner(IDesktopInput desktop)
+	void Send(IDesktopInput desktop, IReadOnlyList<PointerEvent> events, Touch owner, string note = "")
 	{
-		if (_buttonDown)
+		foreach (var e in events)
 		{
-			desktop.PointerButton(KeyMap.BtnLeft, false);
-			NoteButtonEvent(false);
-			LinuxNativeDesktop.Debug($"Left button up (touch {_owner?.Pointer.Id} was returned)");
+			switch (e)
+			{
+				case PointerEvent.Move(var x, var y):
+					desktop.MovePointer(Displays(), x, y);
+					break;
+				case PointerEvent.Button(var right, var pressed):
+					desktop.PointerButton(right ? KeyMap.BtnRight : KeyMap.BtnLeft, pressed);
+					NoteButtonEvent(_gesture.HeldRight is not null);
+					LinuxNativeDesktop.Debug($"{(right ? "Right" : "Left")} button {(pressed ? "down" : "up")} (touch {owner.Pointer.Id}{note})");
+					break;
+			}
 		}
-		_buttonDown = false;
+	}
+
+	void ReleaseOwner(IDesktopInput desktop, Touch owner)
+	{
+		Send(desktop, _gesture.Cancel(), owner, " was returned");
 		_owner = null;
 	}
 
-	public void SetMousePosition(int2 position) => input()?.MovePointer(Displays(), position.x, position.y);
+	public void SetMousePosition(int2 position)
+	{
+		if (input() is not { } desktop)
+			return;
+		lock (_gate)
+		{
+			desktop.MovePointer(Displays(), position.x, position.y);
+			_gesture.PointerMoved();
+		}
+	}
 
 	public void SendLeftClick(int2 position) => Click(position, KeyMap.BtnLeft);
 
@@ -160,6 +173,7 @@ sealed class LinuxInputInjector(InputInterface inputInterface, Func<IDesktopInpu
 		lock (_gate)
 		{
 			desktop.MovePointer(Displays(), position.x, position.y);
+			_gesture.PointerMoved();
 			desktop.PointerButton(button, true);
 			desktop.PointerButton(button, false);
 			NoteButtonEvent(false);
@@ -232,9 +246,8 @@ sealed class LinuxInputInjector(InputInterface inputInterface, Func<IDesktopInpu
 	{
 		lock (_gate)
 		{
-			if (_buttonDown && input() is { } desktop)
-				desktop.PointerButton(KeyMap.BtnLeft, false);
-			_buttonDown = false;
+			if (_gesture.HeldRight is { } right && input() is { } desktop)
+				desktop.PointerButton(right ? KeyMap.BtnRight : KeyMap.BtnLeft, false);
 			_anyButtonHeld = false;
 		}
 	}

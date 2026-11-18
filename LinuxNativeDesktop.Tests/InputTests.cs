@@ -302,3 +302,195 @@ public class ScrollAccumulatorTests
 	[Fact]
 	public void NoStepsNoEvents() => Assert.Empty(ScrollAccumulator.Events(0, 0, afterPointerMotion: true));
 }
+
+public class TouchGestureTests
+{
+	const double Threshold = 30, Hold = 1, Frame = 0.1;
+
+	static readonly PointerEvent LeftDown = new PointerEvent.Button(false, true), LeftUp = new PointerEvent.Button(false, false);
+	static readonly PointerEvent RightDown = new PointerEvent.Button(true, true), RightUp = new PointerEvent.Button(true, false);
+	static PointerEvent Move(double x, double y) => new PointerEvent.Move(x, y);
+
+	static IReadOnlyList<PointerEvent> Press(TouchGesture g, double x, double y, double hold = Hold) => g.Update(x, y, true, Threshold, hold, Frame);
+	static IReadOnlyList<PointerEvent> Release(TouchGesture g, double x, double y) => g.Update(x, y, false, Threshold, Hold, Frame);
+
+	[Fact]
+	public void HoveringFollowsTheLaserWithoutRepeats()
+	{
+		var g = new TouchGesture();
+		Assert.Equal([Move(5, 7)], Release(g, 5, 7));
+		Assert.Empty(Release(g, 5, 7));
+	}
+
+	[Fact]
+	public void ATapClicksAtThePressPointDespiteShake()
+	{
+		var g = new TouchGesture();
+		Release(g, 100, 100);
+		Assert.Empty(Press(g, 100, 100)); // nothing until the gesture is known
+		Assert.Empty(Press(g, 120, 110));
+		Assert.Equal([LeftDown], Release(g, 80, 79));
+		Assert.Equal([LeftUp], Release(g, 80, 79)); // the pointer stays on the click for a double click
+	}
+
+	[Fact]
+	public void AClickHoldsItsButtonForTheClickLength()
+	{
+		// Sent microseconds apart, a release can get lost and leave the button held.
+		var g = new TouchGesture();
+		g.Update(100, 100, true, Threshold, Hold, 0.01);
+		Assert.Equal([LeftDown], g.Update(110, 100, false, Threshold, Hold, 0.01));
+		for (int i = 0; i < 4; i++) // 0.04 s
+			Assert.Empty(g.Update(110, 100, false, Threshold, Hold, 0.01));
+		Assert.Equal([LeftUp], g.Update(110, 100, false, Threshold, Hold, 0.02));
+	}
+
+	[Fact]
+	public void PressingAgainEndsTheClickFirst()
+	{
+		var g = new TouchGesture();
+		g.Update(100, 100, true, Threshold, Hold, 0.01);
+		g.Update(100, 100, false, Threshold, Hold, 0.01);
+		Assert.Equal([LeftUp, Move(150, 100)], g.Update(150, 100, true, Threshold, Hold, 0.01));
+		Assert.Null(g.HeldRight);
+		Assert.Equal([LeftDown], g.Update(150, 100, false, Threshold, Hold, 0.01)); // the double click's second
+	}
+
+	[Fact]
+	public void MovingAwayPressesAtThePressPointThenDrags()
+	{
+		var g = new TouchGesture();
+		Press(g, 100, 100);
+		Assert.Equal([LeftDown, Move(131, 100)], Press(g, 131, 100));
+		Assert.Equal([Move(105, 100)], Press(g, 105, 100)); // back inside the threshold, the drag goes on
+		Assert.Equal([LeftUp, Move(105, 101)], Release(g, 105, 101));
+	}
+
+	[Fact]
+	public void HoldingStillRightClicksOnRelease()
+	{
+		var g = new TouchGesture();
+		Press(g, 100, 100);
+		for (int i = 0; i < 11; i++) // 1.1 s
+			Assert.Empty(Press(g, 110, 100));
+		Assert.Empty(Press(g, 200, 200)); // past the hold time, moving doesn't drag
+		Assert.Equal([RightDown], Release(g, 200, 200));
+		Assert.Equal(true, g.HeldRight);
+		Assert.Equal([RightUp, Move(200, 200)], Release(g, 200, 200));
+	}
+
+	[Fact]
+	public void MovingBeforeTheHoldTimeIsADrag()
+	{
+		var g = new TouchGesture();
+		Press(g, 100, 100);
+		for (int i = 0; i < 9; i++)
+			Press(g, 100, 100);
+		Assert.Equal([LeftDown, Move(200, 100)], Press(g, 200, 100));
+		for (int i = 0; i < 20; i++)
+			Press(g, 200, 100);
+		Assert.Equal([LeftUp], Release(g, 200, 100));
+	}
+
+	[Fact]
+	public void WithoutHoldTimeTheLeftButtonGoesDownAtOnce()
+	{
+		var g = new TouchGesture();
+		Assert.Equal([Move(100, 100), LeftDown], Press(g, 100, 100, hold: 0));
+		Assert.Empty(Press(g, 120, 100, hold: 0));
+		Assert.Equal(false, g.HeldRight);
+		Assert.Equal([LeftUp, Move(120, 100)], Release(g, 120, 100));
+	}
+
+	[Fact]
+	public void AQuickSecondTapNearTheFirstLandsOnTheSameSpot()
+	{
+		var g = new TouchGesture();
+		Release(g, 100, 100);
+		Press(g, 100, 100);
+		Assert.Equal([LeftDown], Release(g, 110, 100));
+		Assert.Equal([LeftUp], Release(g, 112, 104)); // the pointer stays on the click
+		Assert.Empty(Release(g, 115, 106));
+		Assert.Empty(Press(g, 118, 108)); // pressed where the first click was
+		Assert.Equal([LeftDown], Release(g, 120, 110));
+		Assert.Equal([LeftUp], Release(g, 120, 110)); // and a third tap would make a triple click
+	}
+
+	[Fact]
+	public void AfterTheDoubleClickTimeThePointerFollowsAgain()
+	{
+		var g = new TouchGesture();
+		Press(g, 100, 100);
+		Release(g, 100, 100);
+		Release(g, 100, 100); // click over
+		for (int i = 0; i < 5; i++)
+			Assert.Empty(Release(g, 110, 100));
+		Assert.Equal([Move(110, 100)], Release(g, 110, 100)); // 0.6 s after the click
+	}
+
+	[Fact]
+	public void MovingAwayFromAClickEndsTheSnapping()
+	{
+		var g = new TouchGesture();
+		Press(g, 100, 100);
+		Release(g, 100, 100);
+		Release(g, 100, 100);
+		Assert.Equal([Move(140, 100)], Release(g, 140, 100));
+		Assert.Equal([Move(110, 100)], Release(g, 110, 100)); // coming back doesn't snap again
+		Assert.Empty(Press(g, 110, 100));
+		Assert.Equal([LeftDown], Release(g, 110, 100));
+	}
+
+	[Fact]
+	public void APressNextToARightClickIsNotSnapped()
+	{
+		var g = new TouchGesture();
+		for (int i = 0; i < 12; i++)
+			Press(g, 100, 100);
+		Release(g, 100, 100);
+		Assert.Equal([RightUp], Release(g, 100, 100));
+		Assert.Equal([Move(110, 100)], Release(g, 110, 100)); // onto the context menu
+	}
+
+	[Fact]
+	public void AfterAnOutsideMoveTheNextClickGoesBackToItsPressPoint()
+	{
+		var g = new TouchGesture();
+		Press(g, 100, 100);
+		Release(g, 100, 100);
+		Release(g, 100, 100); // clicked
+		g.PointerMoved(); // a secondary-action right-click at the laser
+		Assert.Equal([Move(110, 100)], Press(g, 110, 100)); // not snapped to the click any more
+		g.PointerMoved(); // and again during the press
+		Assert.Equal([Move(110, 100), LeftDown], Release(g, 110, 100));
+	}
+
+	[Fact]
+	public void CancelDropsAPressThatHasNotClickedYet()
+	{
+		var g = new TouchGesture();
+		Press(g, 100, 100);
+		Assert.True(g.Active);
+		Assert.Empty(g.Cancel());
+		Assert.False(g.Active);
+		Assert.Equal([Move(500, 500)], Press(g, 500, 500)); // a new press starts at its own point
+		Assert.Empty(Press(g, 510, 500));
+	}
+
+	[Fact]
+	public void CancelReleasesAButtonThatIsDown()
+	{
+		var g = new TouchGesture();
+		Press(g, 100, 100);
+		Press(g, 200, 100); // dragging
+		Assert.Equal([LeftUp], g.Cancel());
+		Assert.Null(g.HeldRight);
+
+		for (int i = 0; i < 12; i++)
+			Press(g, 100, 100); // held past the hold time
+		Release(g, 100, 100);
+		Assert.Equal(true, g.HeldRight); // mid-click
+		Assert.Equal([RightUp], g.Cancel());
+		Assert.Empty(g.Cancel());
+	}
+}

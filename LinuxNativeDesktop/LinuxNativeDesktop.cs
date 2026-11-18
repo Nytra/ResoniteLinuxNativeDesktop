@@ -28,6 +28,12 @@ public class LinuxNativeDesktop : ResoniteMod
 	static readonly ModConfigurationKey<float> ScrollSpeedKey = new("Scroll speed", "Mouse-wheel steps per second with the thumbstick fully pushed while pointing at the desktop", () => 100f, valueValidator: v => v is >= 1f and <= 200f);
 
 	[AutoRegisterConfigKey]
+	static readonly ModConfigurationKey<int> DragThresholdKey = new("Drag threshold", "How far, in desktop pixels, the laser can move while the trigger is held before a click becomes a drag", () => 30, valueValidator: v => v is >= 0 and <= 500);
+
+	[AutoRegisterConfigKey]
+	static readonly ModConfigurationKey<float> HoldForRightClickKey = new("Hold for right-click", "Seconds to hold the trigger still on the desktop for a right-click, like a Windows touchscreen (0 = off: the left button goes down straight away)", () => 0.3f, valueValidator: v => v is >= 0f and <= 5f);
+
+	[AutoRegisterConfigKey]
 	static readonly ModConfigurationKey<bool> DebugLogKey = new("Debug logging", "Log desktop view lifetimes, frame statistics and input events (never typed text or click positions)", () => false);
 
 	[AutoRegisterConfigKey]
@@ -48,6 +54,10 @@ public class LinuxNativeDesktop : ResoniteMod
 	internal static int MaxFramerate => _config?.GetValue(MaxFramerateKey) ?? 30;
 
 	internal static float ScrollSpeed => _config?.GetValue(ScrollSpeedKey) ?? 100f;
+
+	internal static int DragThreshold => _config?.GetValue(DragThresholdKey) ?? 30;
+
+	internal static float HoldForRightClick => _config?.GetValue(HoldForRightClickKey) ?? 0.3f;
 
 	/// <summary>The desktop input sink, once a desktop view has started the portal session.</summary>
 	internal static IDesktopInput? Input => _service;

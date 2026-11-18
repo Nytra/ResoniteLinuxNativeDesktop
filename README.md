@@ -46,11 +46,16 @@ Change these with a mod settings mod such as ResoniteModSettings, or in `rml_con
 | Show cursor | true | Draw the mouse cursor into the image. Needs a restart. |
 | Allow desktop input | true | Let the desktop tab control your mouse and keyboard. Off = view only. Needs a restart. |
 | Scroll speed | 100 | Scroll speed with the thumbstick fully pushed, in wheel notches per second. |
+| Drag threshold | 30 | How far (in desktop pixels) the laser can shake while the trigger is held before a click becomes a drag. Raise it if clicks still drag; 0 turns it off. |
+| Hold for right-click | 0.3 | Seconds to hold the trigger still for a right-click, as on a Windows touchscreen. 0 turns it off, so the left button goes down as soon as you pull the trigger. |
 | Debug logging | false | Log desktop views, frame statistics and input events (button presses, shortcuts and special keys, never typed text or click positions). |
 
 ## Using it in VR
 
-- **Laser**: moves your mouse pointer; trigger clicks, secondary action right-clicks.
+- **Laser**: moves your mouse pointer. The trigger works like a finger on a Windows touchscreen: tap to click, pull and
+  move to drag (small shakes don't count, and a quick second tap lands on the first for a double click), hold still for
+  a moment (0.3 s) and let go to right-click. The secondary action right-clicks too, but by default it also jumps, as in
+  vanilla.
 - **Thumbstick**: scrolls what's under the laser. It still moves and turns you as usual; to stop that while pointing
   at UI, use a mod such as [NoTankControls](https://github.com/Nytra/NoTankControls).
 - **Windows-logo button**: opens your application launcher (Meta key).

@@ -34,13 +34,26 @@ input. User docs are in README.md; this file covers the design and the engine fa
   texture's `onUpdated` via `HandlePropertiesUpdate` so materials re-send the id.
 - **Upload**: the capture thread fills a shared-memory `Bitmap2D`; a `World.RunInUpdates` pump hands it to
   `Texture2D.SetFromBitmap2D` (one upload in flight) and allocates a new one.
-- **Input**: `LinuxInputInjector` (registered via `Engine.RunPostInit`) uses a RemoteDesktop portal session with
-  the screen cast attached (persistence on `SelectDevices`; tokens stored per mode). Lasers drive one absolute
-  pointer plus BTN_LEFT (a pressing laser keeps the pointer; otherwise the one that last moved). Characters go as
-  keysyms so the layout picks the key, other keys as evdev codes (`Input/KeyMap.cs`); a modifier-only list is tapped
-  (the Windows-logo button sends `Key.LeftWindows` → Meta; sequencing in `KeyMap.Tap`), and every release is sent
-  again 50 ms later (engine fact 10). Notify calls are fire-and-forget
-  `g_dbus_connection_call`s. Input only reaches the portal once a desktop view has started the session.
+- **Input**: `LinuxInputInjector` (registered via `Engine.RunPostInit`) uses a RemoteDesktop portal session with the
+  screen cast attached (persistence on `SelectDevices`; tokens stored per mode). Lasers drive one absolute pointer plus
+  BTN_LEFT and BTN_RIGHT (a pressing laser keeps the pointer; otherwise the one that last moved). Windows turns the
+  engine's injected touches into mouse input with tap slop and press-and-hold right-click; `TouchGesture` does the same
+  (settings Drag threshold, 30 px, and Hold for right-click, 0.3 s like the Windows pen default): nothing is pressed
+  until a release (click), a move past the threshold (left down at the press point, then drag) or the hold time
+  (right-click on release). Without the slop laser shake turned most clicks into drags. Hold 0 = left down at once.
+  Clicks made on release hold the button for 50 ms (`ClickLength`): sent back to back, double clicks sometimes left the
+  button held, most likely a lost release as in engine fact 10 (not checked with dbus-monitor). Confirmed fixed in-game.
+  For 0.5 s after a left click (`DoubleClickTime`) the pointer stays on it while the laser is within the threshold, and
+  a press there lands on the same spot (Windows has a double-tap distance), since toolkits only take presses ~5 px apart
+  as a double click; not after a right-click, where the next press picks a menu item (confirmed in-game). The
+  secondary-action click and `SetMousePosition` call `TouchGesture.PointerMoved`, so the next button event moves the
+  pointer back to its press point first. A touch taken away mid-press (`TouchGesture.Cancel`) drops a tap or hold that
+  hasn't pressed anything yet, rather than sending its press and release back to back. The secondary action also
+  right-clicks (`DesktopInteractionRelay.TriggerSecondary`), but vanilla binds it to jump too. Characters go as keysyms
+  so the layout picks the key, other keys as evdev codes (`Input/KeyMap.cs`); a modifier-only list is tapped (the
+  Windows-logo button sends `Key.LeftWindows` → Meta; sequencing in `KeyMap.Tap`), and every release is sent again 50 ms
+  later (engine fact 10). Notify calls are fire-and-forget `g_dbus_connection_call`s. Input only reaches the portal once
+  a desktop view has started the session.
 - **VR fixes**: `CursorLockPatch` drops the cursor lock in VR; `GameMouseFilterPatch` hides the game's mouse
   buttons in VR while the mod is injecting clicks (a button held, or within 0.5 s of one, since Wine reports them late).
 - **Scrolling** (`DesktopScroll`): while `DesktopInteractionRelay.ProcessEvent` sees a laser (0.1 s timeout), its
@@ -132,10 +145,10 @@ misses the dash's ≡ button clicks the desktop instead. The button already has 
   method run in that order (this one before NoTankControls).
 - Decompile the game with `ilspycmd`. Style: tabs, file-scoped namespaces, csproj layout as in the author's other
   RML mods.
-- Tests (`dotnet test`, 115): SPA pods byte-for-byte against `tools/spa-reference.c`, frame copy, display matching,
-  pointer mapping, key mapping and tap sequences, keysyms, scroll accumulation and primers, portal GVariant
-  messages and Response checks (real GLib), bus name lookup (skipped without a session bus), log redaction, and a
-  real PipeWire stream from a GStreamer source.
+- Tests (`dotnet test`, 130): SPA pods byte-for-byte against `tools/spa-reference.c`, frame copy, display matching,
+  pointer mapping, key mapping and tap sequences, keysyms, touch gestures, scroll accumulation and primers, portal
+  GVariant messages and Response checks (real GLib), bus name lookup (skipped without a session bus), log redaction, and
+  a real PipeWire stream from a GStreamer source.
 - Tested on KDE Plasma 6.8 Wayland, single monitor, VR. Untested: multiple monitors.
 - "Stream desktop" is left unpatched (the user's choice) and can't work: `SharedDesktopTexture` mirrors locally
   through a `DesktopTextureProvider`, but the stream others receive comes from FFmpeg's Windows-only `gfxcapture`
