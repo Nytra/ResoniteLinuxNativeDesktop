@@ -176,7 +176,7 @@ sealed class LinuxInputInjector(InputInterface inputInterface, Func<IDesktopInpu
 			_gesture.PointerMoved();
 			desktop.PointerButton(button, true);
 			desktop.PointerButton(button, false);
-			NoteButtonEvent(false);
+			NoteButtonEvent(_gesture.HeldRight is not null); // a laser drag may still hold the left button
 		}
 	}
 
