@@ -9,7 +9,7 @@ public class LinuxNativeDesktop : ResoniteMod
 {
 	public override string Name => "LinuxNativeDesktop";
 	public override string Author => "Nytra";
-	public override string Version => "1.0.0";
+	public override string Version => typeof(LinuxNativeDesktop).Assembly.GetName().Version!.ToString(3);
 	public override string Link => "https://github.com/Nytra/ResoniteLinuxNativeDesktop";
 
 	[AutoRegisterConfigKey]
