@@ -14,9 +14,12 @@ input. User docs are in README.md; this file covers the design and the engine fa
 ## Design
 
 - **Enable**: `OnEngineInit` clears `DisableDesktop`. `DesktopScreenPatch` rebuilds desktop controllers that were
-  saved empty while the desktop was disabled. The Enabled and Allow desktop input settings are read once there and
-  used all session: what startup does can't be undone live, and mixing live and startup values once let the
-  renderer capture again or left clicks unfiltered.
+  saved empty while the desktop was disabled: the dash's screens are a workspace autosaved to
+  `Private/RadiantDash/Screens`, and `DesktopController.OnAttach` only builds its contents when the desktop is enabled
+  and never runs again on load, so it re-runs `DesktopScreen.Setup` for a fresh controller. Uninstalling or disabling
+  the mod is safe: vanilla `DesktopTextureProvider.UpdateAsset` checks `DisableDesktop` before capturing. The Enabled
+  and Allow desktop input settings are read once there and used all session: what startup does can't be undone live,
+  and mixing live and startup values once let the renderer capture again or left clicks unfiltered.
 - **Capture** (`Capture/`, no engine dependencies): xdg-desktop-portal over GDBus (`PortalSession`), libpipewire
   with hand-built SPA pods (`PipeWireCapture`, `SpaPod`). The stream offers RGBx/RGBA/BGRx/BGRA without modifiers and
   asks for MemPtr/MemFd buffers, so frames arrive in CPU memory, not DMA-BUFs. `CaptureService` keeps one portal
@@ -43,11 +46,13 @@ input. User docs are in README.md; this file covers the design and the engine fa
 - **Scrolling** (`DesktopScroll`): while `DesktopInteractionRelay.ProcessEvent` sees a laser (0.1 s timeout), its
   handler's `Axis` value is turned by `ScrollAccumulator` into notch-sized steps, sent as smooth `NotifyPointerAxis`
   scrolling (15 units per notch). Vertical is negated, because through KDE's portal a positive dy scrolls up
-  (confirmed in-game). After pointer motion each scroll starts with a 1-unit primer (`ScrollAccumulator.Events`,
-  engine fact 9). The stick is deliberately not claimed (`Axis.RegisterBlocks`), so it still moves and turns the
-  user: by the author's choice, blocking that is left to mods like NoTankControls (which also clears
-  `RegisterBlocks` on every handler, so a claim here would be undone anyway). Its inspector scroll compatibility
-  mode blocks on any controller here: the userspace handler holds an invisible tool that uses secondary.
+  (confirmed in-game). Elsewhere it's unknown: the spec gives no sign, and neither xdp-kde nor mutter changes it, so
+  GNOME may scroll backwards. Idea offered, not built: an "Invert vertical scrolling" setting. After pointer motion
+  each scroll starts with a 1-unit primer (`ScrollAccumulator.Events`, engine fact 9). The stick is deliberately not
+  claimed (`Axis.RegisterBlocks`), so it still moves and turns the user: by the author's choice, blocking that is left
+  to mods like NoTankControls (which also clears `RegisterBlocks` on every handler, so a claim here would be undone
+  anyway). Its inspector scroll compatibility mode blocks on any controller here: the userspace handler holds an
+  invisible tool that uses secondary.
 
 ## Engine facts (each one broke an in-game test)
 
@@ -81,7 +86,14 @@ input. User docs are in README.md; this file covers the design and the engine fa
    window until the next tap's release (its press was dropped as a duplicate). So every key release is sent again
    50 ms later (`LinuxInputInjector.ReleaseAgainLater`, under `_gate` so it can't split a Ctrl+C); a release of a
    key that isn't down is ignored. Confirmed fixed in-game; not reproduced from outside the game
-   (`ContainerProbe --key 61 2`).
+   (`ContainerProbe --key 61 2`). F3 is also the engine's debug hotkey (`DEBUG_TEST` in the log); virtual keyboard
+   presses reach it through `SimulatePress`, and injected keys reach the game window through Wine. An injected F3
+   without a following `DEBUG_TEST` means the game already saw F3 held.
+
+Not yet a problem, but worth knowing (KWin `EisDevice::sendKeySym`): keysyms go through KWin's EIS text device,
+which looks the keysym up again on release in the current layout and drops a release that maps to another key (a
+layout switch between press and release would leave a key held; the 50 ms re-release has the same weakness). A
+keysym missing from the layout makes KWin swap in a one-key keymap and release every key that device holds.
 
 The desktop relay ignores all input in desktop mode (`ScreenActive`), so input features are VR only. Vanilla
 quirk, not a bug: the relay locks a laser press to itself (`TouchEnterLock`/`TouchExitLock`), so a press that just
@@ -92,7 +104,10 @@ misses the dash's ≡ button clicks the desktop instead. The button already has 
 - Keep `Capture/` free of engine dependencies; the tests and `tools/ContainerProbe` compile it directly.
 - Engine-facing code (patches, injector, mirror) can only be tested in-game. Use the Debug logging setting, and
   `dbus-monitor --session "type='method_call',interface='org.freedesktop.portal.RemoteDesktop'"` to see what the
-  mod sends. The engine log is buffered (the LogFlush mod flushes it).
+  mod sends. The engine log is buffered (the LogFlush mod flushes it). To avoid recording typed text, filter
+  dbus-monitor to `member='NotifyKeyboardKeycode'` (keysyms carry characters). `xinput test-xi2 --root` shows what
+  X clients get; KeyPress events with `flags: repeat` are XWayland auto-repeat. Inside the container the session
+  bus is `/run/pressure-vessel/bus`.
 - `pgrep -f`/`pkill -f` match their own shell (a `pkill -f` kills the command running it); check for the game
   with `ps -eo comm | grep -E '^(dotnet|Renderite)'`.
 - Changing a pod: build it with the real `spa_pod_builder` in `tools/spa-reference.c` and paste the bytes into
@@ -112,6 +127,9 @@ misses the dash's ≡ button clicks the desktop instead. The button already has 
   one line per character: legacy text input sends every character as a key press), so `InjectString` isn't logged
   and `KeyMap.ForLog` drops typing and shows shortcuts' character keys as "?". Clicks are logged without
   positions. Restore tokens never reach the log.
+- Release facts (checked 2026-11-13): the game runs .NET 10, RML 5.0.1 itself needs Lib.Harmony 2.4.2 (what the mod
+  references), and only the mod DLL ships. RML loads mods alphabetically, so equal-priority postfixes on the same
+  method run in that order (this one before NoTankControls).
 - Decompile the game with `ilspycmd`. Style: tabs, file-scoped namespaces, csproj layout as in the author's other
   RML mods.
 - Tests (`dotnet test`, 115): SPA pods byte-for-byte against `tools/spa-reference.c`, frame copy, display matching,
@@ -122,7 +140,9 @@ misses the dash's ≡ button clicks the desktop instead. The button already has 
 - "Stream desktop" is left unpatched (the user's choice) and can't work: `SharedDesktopTexture` mirrors locally
   through a `DesktopTextureProvider`, but the stream others receive comes from FFmpeg's Windows-only `gfxcapture`
   filter (`hmonitor=` from Wine) via `RuntimeData/ffmpeg.exe`. Supporting it would mean feeding the PipeWire frames to
-  a Linux FFmpeg as raw video instead. Ideas offered but not built: a window-switcher (KDE Overview) button,
-  a bigger hit area for the ≡ button.
+  a Linux FFmpeg as raw video instead (FFMpegCore pipe input, ~200-300 lines). The blockers: the game ships only
+  `ffmpeg.exe` (the author's `RuntimeData/ffmpeg.bak` is a standalone Linux build, 200 MB, origin unknown), the
+  container has no FFmpeg, and raw 1440p30 frames are ~440 MB/s through a pipe. Ideas offered but not built: a
+  window-switcher (KDE Overview) button, a bigger hit area for the ≡ button.
 - The mod was renamed from LinuxDesktopTab; only the local repo folder still uses the old name. GitHub:
   https://github.com/Nytra/ResoniteLinuxNativeDesktop
