@@ -158,10 +158,13 @@ misses the dash's ≡ button clicks the desktop instead. The button already has 
 - Tested on KDE Plasma 6.8 Wayland, single monitor, VR. Untested: multiple monitors.
 - "Stream desktop" is left unpatched (the user's choice) and can't work: `SharedDesktopTexture` mirrors locally
   through a `DesktopTextureProvider`, but the stream others receive comes from FFmpeg's Windows-only `gfxcapture`
-  filter (`hmonitor=` from Wine) via `RuntimeData/ffmpeg.exe`. Supporting it would mean feeding the PipeWire frames to
-  a Linux FFmpeg as raw video instead (FFMpegCore pipe input, ~200-300 lines). The blockers: the game ships only
-  `ffmpeg.exe` (the author's `RuntimeData/ffmpeg.bak` is a standalone Linux build, 200 MB, origin unknown), the
-  container has no FFmpeg, and raw 1440p30 frames are ~440 MB/s through a pipe. Ideas offered but not built: a
+  filter (`hmonitor=` from Wine). Since the 2026-11-17 update the game also ships a Linux `RuntimeData/ffmpeg`
+  (FFmpeg 9.0.2, which FFMpegCore picks off Windows; MediaMTX has a Linux binary too), but
+  `SharedDesktopTexture.BuildArguments` still calls `CaptureMonitor` unconditionally, and that build answers "Unknown
+  filter 'gfxcapture'". Its only screen grabbers are `x11grab` (XWayland root: misses Wayland windows) and `kmsgrab`
+  (needs CAP_SYS_ADMIN). Supporting it would mean patching it to feed the PipeWire frames as raw video
+  instead (FFMpegCore pipe input, ~200-300 lines); raw 1440p30 RGBA is ~440 MB/s through a pipe, so scale down to the
+  stream's resolution first. Ideas offered but not built: a
   window-switcher (KDE Overview) button, a bigger hit area for the ≡ button.
 - The mod was renamed from LinuxDesktopTab; only the local repo folder still uses the old name. GitHub:
   https://github.com/Nytra/ResoniteLinuxNativeDesktop
